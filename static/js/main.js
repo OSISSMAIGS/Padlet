@@ -1,13 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Konfigurasi koneksi Socket.IO
-    const socket = io(window.location.origin, {
-        transports: ['polling'],
-        path: '/socket.io',
-        reconnection: true,
-        reconnectionAttempts: 5,
-        reconnectionDelay: 3000
-    });
-
     // DOM elements
     const postForm = document.getElementById('post-form');
     const postsContainer = document.getElementById('posts-container');
@@ -17,139 +8,232 @@ document.addEventListener('DOMContentLoaded', () => {
     const createPostBtn = document.getElementById('create-post-btn');
     const popupOverlay = document.getElementById('popup-overlay');
     const closePopupBtn = document.getElementById('close-popup');
+    const refreshButton = document.getElementById('refresh-btn'); // Get the existing refresh button
 
-    // Fungsi toggle popup
+    // Polling interval in milliseconds
+    const POLLING_INTERVAL = 10000; // 10 seconds
+    let lastPollTime = Date.now();
+    let isPolling = false;
+
+    // Function to toggle popup form
     function togglePopup() {
         popupOverlay.classList.toggle('active');
-        document.body.style.overflow = popupOverlay.classList.contains('active') 
-            ? 'hidden' 
-            : 'auto';
+        
+        // If opening the popup, focus on the first input
         if (popupOverlay.classList.contains('active')) {
             document.getElementById('username').focus();
+            // Prevent body scrolling when popup is open
+            document.body.style.overflow = 'hidden';
+        } else {
+            // Allow body scrolling when popup is closed
+            document.body.style.overflow = 'auto';
         }
     }
 
-    // Event listeners untuk UI
+    // Event listeners for opening/closing popup
     createPostBtn.addEventListener('click', togglePopup);
     closePopupBtn.addEventListener('click', togglePopup);
+    
+    // Close popup when clicking outside the form
     popupOverlay.addEventListener('click', (e) => {
-        if (e.target === popupOverlay) togglePopup();
+        if (e.target === popupOverlay) {
+            togglePopup();
+        }
     });
+    
+    // Close popup with ESC key
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && popupOverlay.classList.contains('active')) {
             togglePopup();
         }
     });
 
-    // File input handler
-    fileInput.addEventListener('change', () => {
-        fileNameDisplay.textContent = fileInput.files[0]?.name || 'No file chosen';
+    // Event listener for file selection
+    fileInput.addEventListener('change', (e) => {
+        if (fileInput.files.length > 0) {
+            fileNameDisplay.textContent = fileInput.files[0].name;
+        } else {
+            fileNameDisplay.textContent = 'No file chosen';
+        }
     });
 
-    // Initial fetch posts
+    // Fetch existing posts when the page loads
     fetchPosts();
 
-    // Form submission handler
+    // Start polling for new posts
+    startPolling();
+
+    // Handle form submission
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
         const formData = new FormData(postForm);
         submitBtn.disabled = true;
         submitBtn.textContent = 'Posting...';
-
+        
         try {
-            const res = await fetch('/api/posts', {
+            const response = await fetch('/api/posts', {
                 method: 'POST',
-                body: formData
+                body: formData,
             });
             
-            if (res.ok) {
+            if (response.ok) {
+                // Clear the form
                 postForm.reset();
                 fileNameDisplay.textContent = 'No file chosen';
+                
+                // Close the popup after successful post
                 togglePopup();
-                // Fallback jika socket gagal
-                setTimeout(fetchPosts, 1000);
+                
+                // Refresh the page to see the new post immediately
+                window.location.reload();
             } else {
-                alert('Gagal membuat post: ' + await res.text());
+                alert('Failed to create post. Please try again.');
             }
-        } catch (err) {
-            console.error('Error submission:', err);
-            alert('Terjadi kesalahan jaringan');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Post';
         }
     });
 
-    // Socket.io handlers
-    socket.on('new_post', (post) => {
-        appendPostToDOM(post, true);
-    });
+    // Function to start polling for new posts
+    function startPolling() {
+        setInterval(() => {
+            if (!isPolling && !popupOverlay.classList.contains('active')) {
+                pollForNewPosts();
+            }
+        }, POLLING_INTERVAL);
+    }
 
-    socket.on('connect', () => {
-        console.log('Terhubung ke server');
-    });
-
-    socket.on('disconnect', () => {
-        console.log('Terputus dari server');
-    });
-
-    socket.on('connect_error', (err) => {
-        console.error('Kesalahan koneksi:', err);
-    });
-
-    // Fungsi fetch posts
-    async function fetchPosts() {
+    // Function to poll for new posts
+    async function pollForNewPosts() {
+        isPolling = true;
         try {
-            const res = await fetch('/api/posts');
-            const posts = await res.json();
-            postsContainer.innerHTML = '';
+            const response = await fetch(`/api/posts?since=${lastPollTime}`);
+            const posts = await response.json();
             
-            // Urutkan post terbaru di atas
-            posts.forEach((p, i) => appendPostToDOM(p, false, i));
-        } catch (err) {
-            console.error('Gagal memuat posts:', err);
+            if (posts.length > 0) {
+                // Update posts container with new posts
+                posts.forEach(post => {
+                    appendPostToDOM(post, true);
+                });
+                
+                // Show notification to user
+                showNotification(`${posts.length} new post(s) added!`);
+                
+                // Update last poll time
+                lastPollTime = Date.now();
+            }
+        } catch (error) {
+            console.error('Error polling for posts:', error);
+        } finally {
+            isPolling = false;
         }
     }
 
-    // Fungsi menentukan ukuran post
-    function getPostSizeClass(post, idx) {
-        if (post.image_path && idx % 5 === 0) return 'size-2';
-        if (!post.image_path && idx % 7 === 0) return 'size-2';
+    // Function to show notification
+    function showNotification(message) {
+        const notification = document.createElement('div');
+        notification.className = 'notification';
+        notification.textContent = message;
+        document.body.appendChild(notification);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            notification.classList.add('fade-out');
+            setTimeout(() => {
+                document.body.removeChild(notification);
+            }, 500);
+        }, 3000);
+    }
+
+    // Function to fetch existing posts
+    async function fetchPosts() {
+        try {
+            const response = await fetch('/api/posts');
+            const posts = await response.json();
+            
+            // Clear the posts container
+            postsContainer.innerHTML = '';
+            
+            // Add posts in the order received from server
+            posts.forEach((post, index) => {
+                appendPostToDOM(post, false, index);
+            });
+            
+            // Update last poll time after initial fetch
+            lastPollTime = Date.now();
+        } catch (error) {
+            console.error('Error fetching posts:', error);
+        }
+    }
+
+    // Function to determine post size class
+    function getPostSizeClass(post, index) {
+        // Posts with images are occasionally double-width
+        if (post.image_path && index % 5 === 0) {
+            return 'size-2';
+        }
+        
+        // Some text posts are also double-width for visual variation
+        if (!post.image_path && index % 7 === 0) {
+            return 'size-2';
+        }
+        
         return '';
     }
 
-    // Fungsi menambahkan post ke DOM
-    function appendPostToDOM(post, isNew, idx = 0) {
-        const el = document.createElement('div');
-        el.className = `post ${getPostSizeClass(post, idx)} ${isNew ? 'new-post' : ''}`;
+    // Function to add a post to the DOM
+    function appendPostToDOM(post, isNew, index = 0) {
+        const postElement = document.createElement('div');
+        const sizeClass = getPostSizeClass(post, index);
         
-        const imgHtml = post.image_path 
-            ? `<img src="/static/${post.image_path}" class="post-image" loading="lazy">` 
-            : '';
+        postElement.className = `post ${sizeClass} ${isNew ? 'new-post' : ''}`;
         
-        el.innerHTML = `
+        let imageHtml = '';
+        if (post.image_path) {
+            imageHtml = `<img src="/static/${post.image_path}" alt="Post image" class="post-image">`;
+        }
+        
+        postElement.innerHTML = `
             <div class="post-header">
-                <span class="post-author">${escapeHTML(post.username)}</span>
+                <span class="post-author">${escapeHTML(post.username || 'Anonymous')}</span>
                 <span class="post-date">${post.created_at}</span>
             </div>
             <div class="post-content">${escapeHTML(post.content)}</div>
-            ${imgHtml}
+            ${imageHtml}
         `;
-
-        // Tambahkan post baru di atas
+        
+        // For new posts, add at the beginning of container
         if (isNew) {
-            postsContainer.insertBefore(el, postsContainer.firstChild);
+            postsContainer.insertBefore(postElement, postsContainer.firstChild);
         } else {
-            postsContainer.appendChild(el);
+            postsContainer.appendChild(postElement);
         }
+        
+        return postElement;
     }
 
-    // Fungsi escape HTML
-    function escapeHTML(s) {
-        return s.replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#039;');
+    // Helper function to escape HTML
+    function escapeHTML(str) {
+        if (!str) return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     }
+
+    // Add event listener to the existing refresh button
+    refreshButton.addEventListener('click', async () => {
+        refreshButton.classList.add('rotating');
+        await fetchPosts();
+        setTimeout(() => {
+            refreshButton.classList.remove('rotating');
+        }, 1000);
+    });
 });
