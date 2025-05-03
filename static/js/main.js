@@ -1,12 +1,11 @@
-// main.js
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Force polling transport and increase reconnection timeout
-    const socket = io({
+    // Konfigurasi koneksi Socket.IO
+    const socket = io(window.location.origin, {
         transports: ['polling'],
+        path: '/socket.io',
+        reconnection: true,
         reconnectionAttempts: 5,
-        reconnectionDelay: 1000,
-        timeout: 20000
+        reconnectionDelay: 3000
     });
 
     // DOM elements
@@ -18,24 +17,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const createPostBtn = document.getElementById('create-post-btn');
     const popupOverlay = document.getElementById('popup-overlay');
     const closePopupBtn = document.getElementById('close-popup');
-    
-    // Connection status indicator
-    const connectionStatus = document.createElement('div');
-    connectionStatus.id = 'connection-status';
-    connectionStatus.className = 'connection-status disconnected';
-    connectionStatus.textContent = 'Connecting...';
-    document.querySelector('header').appendChild(connectionStatus);
 
+    // Fungsi toggle popup
     function togglePopup() {
         popupOverlay.classList.toggle('active');
-        document.body.style.overflow = popupOverlay.classList.contains('active')
-            ? 'hidden'
+        document.body.style.overflow = popupOverlay.classList.contains('active') 
+            ? 'hidden' 
             : 'auto';
         if (popupOverlay.classList.contains('active')) {
             document.getElementById('username').focus();
         }
     }
 
+    // Event listeners untuk UI
     createPostBtn.addEventListener('click', togglePopup);
     closePopupBtn.addEventListener('click', togglePopup);
     popupOverlay.addEventListener('click', (e) => {
@@ -47,18 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // File input
+    // File input handler
     fileInput.addEventListener('change', () => {
-        if (fileInput.files.length > 0) {
-            fileNameDisplay.textContent = fileInput.files[0].name;
-        } else {
-            fileNameDisplay.textContent = 'No file chosen';
-        }
+        fileNameDisplay.textContent = fileInput.files[0]?.name || 'No file chosen';
     });
 
-    // Fetch & render posts
+    // Initial fetch posts
     fetchPosts();
 
+    // Form submission handler
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(postForm);
@@ -66,89 +57,74 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.textContent = 'Posting...';
 
         try {
-            const res = await fetch('/api/posts', { method: 'POST', body: formData });
+            const res = await fetch('/api/posts', {
+                method: 'POST',
+                body: formData
+            });
+            
             if (res.ok) {
-                const post = await res.json();
-                console.log('Post created:', post);
-                
-                // Manually append the new post to DOM without waiting for socket
-                appendPostToDOM(post, true);
-                
                 postForm.reset();
                 fileNameDisplay.textContent = 'No file chosen';
                 togglePopup();
+                // Fallback jika socket gagal
+                setTimeout(fetchPosts, 1000);
             } else {
-                alert('Failed to create post.');
+                alert('Gagal membuat post: ' + await res.text());
             }
         } catch (err) {
-            console.error('Error creating post:', err);
-            alert('Error occurred.');
+            console.error('Error submission:', err);
+            alert('Terjadi kesalahan jaringan');
         } finally {
             submitBtn.disabled = false;
             submitBtn.textContent = 'Post';
         }
     });
 
-    // Socket.IO event listeners
-    socket.on('connect', () => {
-        console.log('Connected to server');
-        connectionStatus.className = 'connection-status connected';
-        connectionStatus.textContent = 'Connected';
-        setTimeout(() => {
-            connectionStatus.style.opacity = '0';
-        }, 3000);
-    });
-    
-    socket.on('disconnect', () => {
-        console.log('Disconnected from server');
-        connectionStatus.className = 'connection-status disconnected';
-        connectionStatus.textContent = 'Disconnected';
-        connectionStatus.style.opacity = '1';
-    });
-    
-    socket.on('connect_error', (error) => {
-        console.error('Connection error:', error);
-        connectionStatus.className = 'connection-status error';
-        connectionStatus.textContent = 'Connection Error';
-        connectionStatus.style.opacity = '1';
-    });
-
+    // Socket.io handlers
     socket.on('new_post', (post) => {
-        console.log('New post received via socket:', post);
         appendPostToDOM(post, true);
     });
 
+    socket.on('connect', () => {
+        console.log('Terhubung ke server');
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Terputus dari server');
+    });
+
+    socket.on('connect_error', (err) => {
+        console.error('Kesalahan koneksi:', err);
+    });
+
+    // Fungsi fetch posts
     async function fetchPosts() {
         try {
             const res = await fetch('/api/posts');
             const posts = await res.json();
             postsContainer.innerHTML = '';
+            
+            // Urutkan post terbaru di atas
             posts.forEach((p, i) => appendPostToDOM(p, false, i));
         } catch (err) {
-            console.error('Error fetching posts:', err);
+            console.error('Gagal memuat posts:', err);
         }
     }
 
+    // Fungsi menentukan ukuran post
     function getPostSizeClass(post, idx) {
         if (post.image_path && idx % 5 === 0) return 'size-2';
         if (!post.image_path && idx % 7 === 0) return 'size-2';
         return '';
     }
 
+    // Fungsi menambahkan post ke DOM
     function appendPostToDOM(post, isNew, idx = 0) {
-        // Check if post already exists (to prevent duplicates)
-        const existingPost = document.querySelector(`.post[data-id="${post.id}"]`);
-        if (existingPost) {
-            console.log('Post already exists, not adding duplicate:', post.id);
-            return;
-        }
-        
         const el = document.createElement('div');
         el.className = `post ${getPostSizeClass(post, idx)} ${isNew ? 'new-post' : ''}`;
-        el.setAttribute('data-id', post.id);
         
-        let imgHtml = post.image_path
-            ? `<img src="/static/${post.image_path}" class="post-image" alt="Post image">`
+        const imgHtml = post.image_path 
+            ? `<img src="/static/${post.image_path}" class="post-image" loading="lazy">` 
             : '';
         
         el.innerHTML = `
@@ -159,22 +135,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="post-content">${escapeHTML(post.content)}</div>
             ${imgHtml}
         `;
-        
+
+        // Tambahkan post baru di atas
         if (isNew) {
             postsContainer.insertBefore(el, postsContainer.firstChild);
-            
-            // Highlight new post with animation
-            setTimeout(() => {
-                el.classList.add('highlight');
-                setTimeout(() => el.classList.remove('highlight'), 2000);
-            }, 10);
         } else {
             postsContainer.appendChild(el);
         }
     }
 
+    // Fungsi escape HTML
     function escapeHTML(s) {
-        return (s || '').toString().replace(/&/g, '&amp;')
+        return s.replace(/&/g, '&amp;')
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;')
