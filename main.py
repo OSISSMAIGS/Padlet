@@ -41,7 +41,11 @@ socketio = SocketIO(
     app,
     cors_allowed_origins="*",
     async_mode='threading',
-    engineio_options={'transports': ['polling']}  # ← force polling only
+    engineio_options={
+        'transports': ['polling'],
+        'ping_timeout': 60,  # Increased timeout
+        'ping_interval': 25  # More frequent pings
+    }
 )
 
 # Define your Post model
@@ -90,9 +94,17 @@ def create_post():
     post = Post(content=content, username=username, image_path=image_path)
     db.session.add(post)
     db.session.commit()
-
-    socketio.emit('new_post', post.to_dict())
-    return jsonify(post.to_dict()), 201
+    
+    # Get fresh data from DB to ensure ID is included
+    post_dict = post.to_dict()
+    
+    # Emit with a slight delay to ensure database transaction is complete
+    def emit_after_post():
+        socketio.emit('new_post', post_dict)
+    
+    socketio.start_background_task(emit_after_post)
+    
+    return jsonify(post_dict), 201
 
 @app.errorhandler(404)
 def handle_404(e):
@@ -107,6 +119,15 @@ def on_connect():
 def on_disconnect():
     print('Client disconnected')
 
+# Additional debug events
+@socketio.on_error()
+def error_handler(e):
+    print(f"Socket.IO error: {e}")
+
+@socketio.on('connect_error')
+def handle_connect_error(error):
+    print(f"Connection error: {error}")
+
 # CLI command to init DB
 @app.cli.command('init-db')
 def init_db():
@@ -117,4 +138,4 @@ if __name__ == '__main__':
     with app.app_context():
         db.create_all()
     # debug=False in production (cPanel); True locally if you like
-    socketio.run(app, debug=True)
+    socketio.run(app, debug=False, host='0.0.0.0')
