@@ -9,34 +9,41 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
-# Load environment variables
+# Load environment variables for both cPanel and local XAMPP
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev_key')
 
-# Konfigurasi untuk MySQL via XAMPP
-# Default XAMPP MySQL credentials: username='root', password=''
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+pymysql://root:@localhost/padlet_db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'app/static/uploads')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+# Database configuration: prioritize cPanel env, fallback to local XAMPP defaults
+db_user = os.getenv('DB_USER', 'root')              # cPanel: set via .env or App Manager; XAMPP default user
+db_pass = os.getenv('DB_PASSWORD', '')               # cPanel: password from .env; XAMPP default empty
+db_host = os.getenv('DB_HOST', 'localhost')          # host for MySQL
+db_name = os.getenv('DB_NAME', 'padlet_db')          # default database name
+db_port = os.getenv('DB_PORT', '3306')               # default MySQL port
 
-# Pastikan folder upload ada
+app.config['SQLALCHEMY_DATABASE_URI'] = (
+    f"mysql+pymysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
+)
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# File upload configuration
+app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'static/uploads')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-# Inisialisasi ekstensi
+# Initialize extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+# Force threading mode to avoid eventlet/ssl issues on Windows
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# Definisi model
+# Define Post model
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
     username = db.Column(db.String(100), nullable=False)
     image_path = db.Column(db.String(255), nullable=True)
-    # Timezone-aware UTC+7
     created_at = db.Column(
         db.DateTime(timezone=True),
         default=lambda: datetime.now(timezone(timedelta(hours=7)))
@@ -56,13 +63,10 @@ class Post(db.Model):
 def index():
     return render_template('index.html')
 
-
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
-    # Urutkan dari yang terbaru (created_at desc)
     posts = Post.query.order_by(Post.created_at.desc()).all()
     return jsonify([post.to_dict() for post in posts])
-
 
 @app.route('/api/posts', methods=['POST'])
 def create_post():
@@ -72,46 +76,38 @@ def create_post():
     image_path = None
     file = request.files.get('image')
     if file and file.filename:
-        # Buat nama unik dan simpan
         filename = secure_filename(f"{uuid.uuid4().hex}_{file.filename}")
         save_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
         file.save(save_path)
-        # Simpan path relatif dari folder static
         image_path = f"uploads/{filename}"
 
     post = Post(content=content, username=username, image_path=image_path)
     db.session.add(post)
     db.session.commit()
 
-    # Emit ke client SocketIO
     socketio.emit('new_post', post.to_dict())
     return jsonify(post.to_dict()), 201
 
 @app.errorhandler(404)
 def error(e):
-    return redirect("/")
+    return redirect('/')
 
 # SocketIO events
 @socketio.on('connect')
 def handle_connect():
     print('Client connected')
 
-
 @socketio.on('disconnect')
 def handle_disconnect():
     print('Client disconnected')
 
-
-# CLI command untuk init DB
-@app.cli.command("init-db")
+# CLI command to initialize DB tables
+@app.cli.command('init-db')
 def init_db():
-    """Initialize database tables."""
     db.create_all()
-    print("Database tables initialized.")
-
+    print('Database tables initialized.')
 
 if __name__ == '__main__':
-    # Pastikan tabel tersedia sebelum run
     with app.app_context():
         db.create_all()
     socketio.run(app, debug=True)
