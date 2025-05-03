@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Padlet | OSIS SMA IGS</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.6.1/socket.io.js"></script>
+    <link rel="shortcut icon" href="{{ url_for('static', filename='img/valiancelogo.png') }}" type="image/x-icon">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Padlet | OSIS SMA IGS</h1>
+        </header>
+
+        <div class="posts-container" id="posts-container">
+            <!-- Posts will be dynamically inserted here -->
+        </div>
+    </div>
+
+    <!-- Create post button -->
+    <button class="create-post-btn" id="create-post-btn">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <!-- Popup form overlay -->
+    <div class="popup-overlay" id="popup-overlay">
+        <div class="post-form-container">
+            <button class="close-popup" id="close-popup">
+                <i class="fas fa-times"></i>
+            </button>
+            <form id="post-form" enctype="multipart/form-data">
+                <div class="form-group">
+                    <input type="text" id="username" name="username" placeholder="Nama: (Opsional)">
+                </div>
+                <div class="form-group">
+                    <textarea id="content" name="content" placeholder="Masukan pesan anda..."></textarea>
+                </div>
+                <div class="form-group file-input-container">
+                    <label for="image" class="file-label">
+                        <span class="file-label-text">Add Image</span>
+                        <input type="file" id="image" name="image" accept="image/*">
+                    </label>
+                    <span id="file-name">No file chosen</span>
+                </div>
+                <div class="form-group">
+                    <button type="submit" id="submit-btn">Post</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
