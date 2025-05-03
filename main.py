@@ -1,3 +1,5 @@
+# main.py
+
 import os
 import uuid
 from datetime import datetime, timezone, timedelta
@@ -9,36 +11,40 @@ from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
 
-# Load environment variables for both cPanel and local XAMPP
+# Load environment variables (or use defaults for local XAMPP)
 load_dotenv()
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev_key')
 
-# Database configuration: prioritize cPanel env, fallback to local XAMPP defaults
-db_user = os.getenv('DB_USER', 'root')              # cPanel: set via .env or App Manager; XAMPP default user
-db_pass = os.getenv('DB_PASSWORD', '')               # cPanel: password from .env; XAMPP default empty
-db_host = os.getenv('DB_HOST', 'localhost')          # host for MySQL
-db_name = os.getenv('DB_NAME', 'padlet_db')          # default database name
-db_port = os.getenv('DB_PORT', '3306')               # default MySQL port
+# Database configuration: cPanel via .env, fallback to XAMPP defaults
+db_user = os.getenv('DB_USER', 'root')
+db_pass = os.getenv('DB_PASSWORD', '')
+db_host = os.getenv('DB_HOST', 'localhost')
+db_name = os.getenv('DB_NAME', 'padlet_db')
+db_port = os.getenv('DB_PORT', '3306')
 
 app.config['SQLALCHEMY_DATABASE_URI'] = (
     f"mysql+pymysql://{db_user}:{db_pass}@{db_host}:{db_port}/{db_name}"
 )
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# File upload configuration
+# File upload settings
 app.config['UPLOAD_FOLDER'] = os.getenv('UPLOAD_FOLDER', 'static/uploads')
-app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16 MB
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 # Initialize extensions
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
-# Force threading mode to avoid eventlet/ssl issues on Windows
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    engineio_options={'transports': ['polling']}  # ← force polling only
+)
 
-# Define Post model
+# Define your Post model
 class Post(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     content = db.Column(db.Text, nullable=False)
@@ -66,7 +72,7 @@ def index():
 @app.route('/api/posts', methods=['GET'])
 def get_posts():
     posts = Post.query.order_by(Post.created_at.desc()).all()
-    return jsonify([post.to_dict() for post in posts])
+    return jsonify([p.to_dict() for p in posts])
 
 @app.route('/api/posts', methods=['POST'])
 def create_post():
@@ -89,19 +95,19 @@ def create_post():
     return jsonify(post.to_dict()), 201
 
 @app.errorhandler(404)
-def error(e):
+def handle_404(e):
     return redirect('/')
 
-# SocketIO events
+# Socket.IO events
 @socketio.on('connect')
-def handle_connect():
+def on_connect():
     print('Client connected')
 
 @socketio.on('disconnect')
-def handle_disconnect():
+def on_disconnect():
     print('Client disconnected')
 
-# CLI command to initialize DB tables
+# CLI command to init DB
 @app.cli.command('init-db')
 def init_db():
     db.create_all()
@@ -110,4 +116,5 @@ def init_db():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
+    # debug=False in production (cPanel); True locally if you like
     socketio.run(app, debug=True)
