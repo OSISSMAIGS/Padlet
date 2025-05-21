@@ -67,26 +67,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle form submission
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
-        if(message.value != ""){const formData = new FormData(postForm);
+    
+        const hasText = message.value.trim() !== "";
+        const hasImage = fileInput.files.length > 0;
+    
+        // Jika ada teks atau ada gambar, baru submit.
+        if (hasText || hasImage) {
+            const formData = new FormData(postForm);
             submitBtn.disabled = true;
             submitBtn.textContent = 'Posting...';
-            
+    
             try {
                 const response = await fetch('/api/posts', {
                     method: 'POST',
                     body: formData,
                 });
-                
+    
                 if (response.ok) {
-                    // Clear the form
                     postForm.reset();
                     fileNameDisplay.textContent = 'No file chosen';
-                    
-                    // Close the popup after successful post
                     togglePopup();
-                    
-                    // Refresh the page to see the new post immediately
                     window.location.reload();
                 } else {
                     alert('Failed to create post. Please try again.');
@@ -97,11 +97,12 @@ document.addEventListener('DOMContentLoaded', () => {
             } finally {
                 submitBtn.disabled = false;
                 submitBtn.textContent = 'Post';
-            }}
-            else{
-                alert('Message not filled!')
             }
+        } else {
+            alert('Message not filled');
+        }
     });
+    
 
     // Function to start polling for new posts
     function startPolling() {
