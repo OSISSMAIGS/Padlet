@@ -6,7 +6,6 @@
 
 body {
     font-family: 'Roboto', sans-serif;
-    background-color: #f5f5f5;
     color: #333;
     line-height: 1.6;
     position: relative;
@@ -19,20 +18,7 @@ body {
     padding: 20px;
 }
 
-header {
-    text-align: center;
-    margin-bottom: 30px;
-    padding: 20px 0;
-    background-color: #4a6ea9;
-    color: white;
-    border-radius: 8px;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
 
-h1 {
-    font-size: 2.5rem;
-    font-weight: 500;
-}
 
 /* Action button shared styles (for create and refresh buttons) */
 .action-btn {
@@ -40,23 +26,23 @@ h1 {
     right: 30px;
     width: 60px;
     height: 60px;
-    background-color: #4a6ea9;
-    color: white;
+    background-color: rgb(25, 27, 120);
+    color: #c6b852;
     border: none;
     border-radius: 50%;
     font-size: 24px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 0 0.7rem rgba(0, 0, 0, 0.5);
     cursor: pointer;
     z-index: 100;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
 }
 
 .action-btn:hover {
-    background-color: #3a5a8c;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.3);
+    background-color: #4b569c;
+    box-shadow: 0 0 1rem rgba(214, 213, 126, 0.5);
     transform: translateY(-2px);
 }
 
@@ -94,7 +80,7 @@ h1 {
 
 /* Post form popup container */
 .post-form-container {
-    background-color: white;
+    background-color: rgb(25, 27, 120);
     padding: 25px;
     border-radius: 16px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
@@ -145,8 +131,8 @@ textarea {
 }
 
 button {
-    background-color: #4a6ea9;
-    color: white;
+    background-color: #c8be87;
+    color: rgb(32, 46, 123);
     border: none;
     padding: 12px 20px;
     cursor: pointer;
@@ -204,10 +190,10 @@ input[type="file"] {
     margin-bottom: 20px;
     break-inside: avoid; /* Prevents posts from breaking across columns */
     page-break-inside: avoid; /* For older browsers */
-    background-color: white;
+    background-color: rgb(13, 32, 94);
     border-radius: 12px;
     padding: 20px;
-    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.3);
     transition: transform 0.3s ease;
 }
 
@@ -224,16 +210,21 @@ input[type="file"] {
 .post-author {
     font-weight: 500;
     color: #4a6ea9;
+    font-size: 1.1rem;
+    color: rgb(222, 222, 163);
+    text-shadow: 0 0 1vw rgb(235, 235, 162);
 }
 
 .post-date {
-    color: #6c757d;
+    color: #8a8c8e;
     font-size: 0.9rem;
 }
 
 .post-content {
     margin-bottom: 15px;
     word-wrap: break-word;
+    color: rgb(228, 215, 183);
+    font-family: "Montserrat", serif;
 }
 
 .post-image {
@@ -295,7 +286,6 @@ input[type="file"] {
 /* Enhanced style for new posts */
 .new-post {
     animation: fadeIn 0.5s ease-out forwards;
-    border-left: 4px solid #4a6ea9;
     position: relative;
 }
 
@@ -385,4 +375,64 @@ input[type="file"] {
         padding: 8px 15px;
         font-size: 14px;
     }
+}
+
+
+
+
+/* decor */
+
+/* post form */
+h2{
+    text-align: center;
+    font-family: "Ancizar Serif", serif;
+    font-size: 3rem;
+    color: rgb(241, 240, 181);   
+    font-weight: 500;
+    text-shadow: 0 0 2vw rgb(253, 253, 52);
+}
+#username, #content{
+    background-color: rgb(13, 14, 80);
+    border: none;
+    color: rgb(241, 240, 181);   
+    font-weight: 500;
+    text-shadow: 0 0 2vw rgb(253, 253, 52);
+}
+
+/* titlebox */
+body{
+    background-color: #203463;
+}
+header{
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 0px 0;
+    background-color: #1c2f62;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+header h1{
+    font-family: "Ancizar Serif", serif;
+    color: white;
+    font-size: 5vw;
+    font-weight: 500;
+    text-shadow: 0 0 2vw rgb(253, 253, 52);
+}
+
+
+/* animation for new post */
+@keyframes postAnim {
+    0%{
+        background-color: rgb(195, 198, 224);
+        box-shadow: 0 0 1vw rgb(208, 219, 137);
+        text-shadow: 0 0 0.3vw white;
+    }
+    100%{
+        background-color: rgb(13, 32, 94);
+        box-shadow: 0 0 1rem rgb(0, 0, 0, 0.3);
+        text-shadow: none;
+    }
+}
+.newanim {
+    animation: postAnim 1s;
 }
