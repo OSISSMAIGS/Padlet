@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // DOM elements
+    const message = document.getElementById('content')
     const postForm = document.getElementById('post-form');
     const postsContainer = document.getElementById('posts-container');
     const fileInput = document.getElementById('image');
@@ -11,7 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshButton = document.getElementById('refresh-btn'); // Get the existing refresh button
 
     // Polling interval in milliseconds
-    const POLLING_INTERVAL = 10000; // 10 seconds
+    const POLLING_INTERVAL = 5000; //don't forget to change to 10 seconds!
     let lastPollTime = Date.now();
     let isPolling = false;
 
@@ -67,36 +68,39 @@ document.addEventListener('DOMContentLoaded', () => {
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        const formData = new FormData(postForm);
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Posting...';
-        
-        try {
-            const response = await fetch('/api/posts', {
-                method: 'POST',
-                body: formData,
-            });
+        if(message.value != ""){const formData = new FormData(postForm);
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Posting...';
             
-            if (response.ok) {
-                // Clear the form
-                postForm.reset();
-                fileNameDisplay.textContent = 'No file chosen';
+            try {
+                const response = await fetch('/api/posts', {
+                    method: 'POST',
+                    body: formData,
+                });
                 
-                // Close the popup after successful post
-                togglePopup();
-                
-                // Refresh the page to see the new post immediately
-                window.location.reload();
-            } else {
-                alert('Failed to create post. Please try again.');
+                if (response.ok) {
+                    // Clear the form
+                    postForm.reset();
+                    fileNameDisplay.textContent = 'No file chosen';
+                    
+                    // Close the popup after successful post
+                    togglePopup();
+                    
+                    // Refresh the page to see the new post immediately
+                    window.location.reload();
+                } else {
+                    alert('Failed to create post. Please try again.');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Post';
+            }}
+            else{
+                alert('Message not filled!')
             }
-        } catch (error) {
-            console.error('Error:', error);
-            alert('An error occurred. Please try again.');
-        } finally {
-            submitBtn.disabled = false;
-            submitBtn.textContent = 'Post';
-        }
     });
 
     // Function to start polling for new posts
@@ -210,6 +214,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // For new posts, add at the beginning of container
         if (isNew) {
             postsContainer.insertBefore(postElement, postsContainer.firstChild);
+            postElement.className += " newanim"
         } else {
             postsContainer.appendChild(postElement);
         }
