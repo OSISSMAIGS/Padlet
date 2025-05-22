@@ -202,9 +202,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (post.image_path) {
             imageHtml = `<img src="/static/${post.image_path}" alt="Post image" class="post-image">`;
         }
+        if (post.username.length > 13){
+            post.username = post.username.slice(0, 13) + "..."
+        }
         
         postElement.innerHTML = `
-            <div class="post-header">
+            <div class="post-header">   
                 <span class="post-author">${escapeHTML(post.username || 'Anonymous')}</span>
                 <span class="post-date">${post.created_at}</span>
             </div>
