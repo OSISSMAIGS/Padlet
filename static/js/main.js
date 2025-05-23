@@ -67,9 +67,24 @@ document.addEventListener('DOMContentLoaded', () => {
     // Handle form submission
     postForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-    
+        const restrictedWords = ['babi', 'pilat', 'ngentot', 'anjing', 'anjay', 'memek', 'kontol', 'ngentod', 'p1lat', 'p1l4t', 'm3m3k', 'lolo', 'buyan', 'kampang', 'k4mp4ng', 'pepek', 'p3p3k', 'lonte', 'lont3', 'k0ntol', 'kont0l', 'niggers', 'nigger','nigga','negros','negro','retard', 'shit','motherfucker', 'fuck', 'sex', 'penis', 'pussy', 'vagina'];
+        const messageText = message.value.trim();   
         const hasText = message.value.trim() !== "";
         const hasImage = fileInput.files.length > 0;
+        const normalizedText = messageText.toLowerCase().replace(/[^a-z]/g, '');
+
+        const containsRestrictedWord = restrictedWords.some(word =>
+            normalizedText.toLowerCase().includes(word.toLowerCase())
+        );
+        const containsRestrictedName = restrictedWords.some(word =>
+            username.value.toLowerCase().includes(word.toLowerCase())
+        );
+        
+
+        if (containsRestrictedWord || containsRestrictedName) {
+            alert('Your message contains inappropriate content and cannot be posted.');
+            return;
+        }
     
         // Jika ada teks atau ada gambar, baru submit.
         if (hasText || hasImage) {
@@ -205,6 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (post.username.length > 13){
             post.username = post.username.slice(0, 13) + "..."
         }
+        
         
         postElement.innerHTML = `
             <div class="post-header">   
