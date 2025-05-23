@@ -9,12 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const createPostBtn = document.getElementById('create-post-btn');
     const popupOverlay = document.getElementById('popup-overlay');
     const closePopupBtn = document.getElementById('close-popup');
-    const refreshButton = document.getElementById('refresh-btn'); // Get the existing refresh button
+    const refreshButton = document.getElementById('refresh-btn');
 
     // Polling interval in milliseconds
-    const POLLING_INTERVAL = 5000; //don't forget to change to 10 seconds!
+    const POLLING_INTERVAL = 10000; // Changed to 10 seconds as commented
     let lastPollTime = Date.now();
     let isPolling = false;
+    let processedPostIds = new Set(); // Track processed posts to avoid duplicates
 
     // Function to toggle popup form
     function togglePopup() {
@@ -84,10 +85,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
     
                 if (response.ok) {
+                    const newPost = await response.json();
+                    
+                    // Add the new post to processed IDs to avoid duplication
+                    processedPostIds.add(newPost.id);
+                    
+                    // Add the new post to DOM immediately
+                    appendPostToDOM(newPost, true);
+                    
+                    // Reset form and close popup
                     postForm.reset();
                     fileNameDisplay.textContent = 'No file chosen';
                     togglePopup();
-                    window.location.reload();
+                    
+                    // Update lastPollTime to prevent re-fetching this post
+                    lastPollTime = Date.now();
+                    
+                    // REMOVED: window.location.reload() - this was causing the bug
                 } else {
                     alert('Failed to create post. Please try again.');
                 }
@@ -102,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
             alert('Message not filled');
         }
     });
-    
 
     // Function to start polling for new posts
     function startPolling() {
@@ -121,15 +134,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const posts = await response.json();
             
             if (posts.length > 0) {
-                // Update posts container with new posts
-                posts.forEach(post => {
-                    appendPostToDOM(post, true);
-                });
+                let newPostsCount = 0;
                 
-                // Show notification to user
-                showNotification(`${posts.length} new post(s) added!`);
+                // Filter out posts that have already been processed
+                const trulyNewPosts = posts.filter(post => !processedPostIds.has(post.id));
                 
-                // Update last poll time
+                if (trulyNewPosts.length > 0) {
+                    // Update posts container with new posts
+                    trulyNewPosts.forEach(post => {
+                        appendPostToDOM(post, true);
+                        processedPostIds.add(post.id); // Track this post
+                        newPostsCount++;
+                    });
+                    
+                    // Show notification to user only for truly new posts
+                    if (newPostsCount > 0) {
+                        showNotification(`${newPostsCount} new post(s) added!`);
+                    }
+                }
+                
+                // Update last poll time regardless of whether posts were new
                 lastPollTime = Date.now();
             }
         } catch (error) {
@@ -161,12 +185,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/posts');
             const posts = await response.json();
             
-            // Clear the posts container
+            // Clear the posts container and processed IDs
             postsContainer.innerHTML = '';
+            processedPostIds.clear();
             
             // Add posts in the order received from server
             posts.forEach((post, index) => {
                 appendPostToDOM(post, false, index);
+                processedPostIds.add(post.id); // Track existing posts
             });
             
             // Update last poll time after initial fetch
@@ -197,6 +223,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const sizeClass = getPostSizeClass(post, index);
         
         postElement.className = `post ${sizeClass} ${isNew ? 'new-post' : ''}`;
+        postElement.setAttribute('data-post-id', post.id); // Add unique identifier
         
         let imageHtml = '';
         if (post.image_path) {
